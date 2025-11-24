@@ -10,20 +10,20 @@ import time
 # Variables
 # ============================================================================
 Straight_time = 25      # Duration of first straight segment (s)
-curve_time = 15         # Duration of turn (s)
-Straight_time2 = 35     # Duration of second straight segment (s)
-targ_vel = 650          # Target velocity (m/s)
-miss_vel = 900          # missile velocity (m/s)
-turn_angle = -np.pi*10   # Turn angle in radians (np.pi = 180°, np.pi/2 = 90°, etc.)
+curve_time = 25         # Duration of turn (s)
+Straight_time2 = 25     # Duration of second straight segment (s)
+targ_vel = 750          # Target velocity (m/s)
+miss_vel = 800          # missile velocity (m/s)
+turn_angle = -np.pi*4/3   # Turn angle in radians (np.pi = 180°, np.pi/2 = 90°, etc.)
 tmax = 75
 dt = 0.001
 animation_interval = 5  # milliseconds
-yz_angle = 0
-missile_start_loc = np.array([11000, 12000, 0])
+yz_angle = -np.pi/12
+missile_start_loc = np.array([13000, 12000, 0])
 aircraft_start_loc = np.array([0, 0, 12000])  # Aircraft starting position
 missile_launch_time = 0  # Time when missile launches (s)
 kill_dist=2
-climb_rate_curve= -0.013
+climb_rate_curve= -0.001
 # ============================================================================
 # Global variables for segment start positions
 # ============================================================================
@@ -175,6 +175,7 @@ missile_states[0] = missile_start_loc
 missile_launched = False
 intercept_time = None
 intercept_index = None
+intercepted = False  # <-- Add this line
 
 for i in range(1, n_points):
     t = times[i]
@@ -185,6 +186,11 @@ for i in range(1, n_points):
         print(f"Missile launched at t = {t:.2f}s")
     
     if missile_launched:
+        # Missile holds intercept point after intercept occurs
+        if intercepted:
+            missile_states[i] = missile_states[i-1]
+            continue
+
         # Calculate direction to target's current position
         direction = target_states[i] - missile_states[i-1]
         distance = np.linalg.norm(direction)
@@ -193,10 +199,12 @@ for i in range(1, n_points):
         if distance < kill_dist and intercept_time is None:
             intercept_time = t
             intercept_index = i
+            intercepted = True  # <-- Set as soon as interception occurs
             print(f"Intercept at t = {t:.2f}s, distance = {distance:.1f}m")
-            # Continue calculating trajectory after intercept for visualization
+            missile_states[i] = missile_states[i-1]  # Stop missile at intercept point
+            continue
         
-        # Update missile position
+        # Update missile position if not intercepted
         if distance > 0:
             unitvec = direction / distance
             dr = unitvec * miss_vel * dt
